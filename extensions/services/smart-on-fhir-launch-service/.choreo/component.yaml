@@ -9,3 +9,4 @@ endpoints:
     networkVisibilities:
       - Project
       - Public
+    schemaFilePath: oas/openapi.yaml
