@@ -1,0 +1,145 @@
+openapi: 3.0.1
+info:
+  title: Service Openapi Yaml
+  version: 1.0.0
+servers:
+  - url: '{server}:{port}/'
+    variables:
+      server:
+        default: http://localhost
+      port:
+        default: '9092'
+paths:
+  /launch:
+    post:
+      summary: Save a new SMART launch context and return the generated launch ID.
+      operationId: postLaunch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LaunchContextRequest'
+        required: true
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LaunchContextSaveResponse'
+        '400':
+          description: BadRequest
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+        '500':
+          description: InternalServerError
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - {}
+                  - $ref: '#/components/schemas/ErrorPayload'
+  /launch/{launchId}:
+    get:
+      summary: Retrieve a SMART launch context by launch ID.
+      operationId: getLaunchLaunchid
+      parameters:
+        - name: launchId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ok
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/LaunchContextResponse'
+                  - $ref: '#/components/schemas/EmptyResponse'
+        '400':
+          description: BadRequest
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+        '500':
+          description: InternalServerError
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - {}
+                  - $ref: '#/components/schemas/ErrorPayload'
+components:
+  schemas:
+    EmptyResponse:
+      type: object
+      properties: {}
+      additionalProperties: false
+    ErrorPayload:
+      required:
+        - message
+        - method
+        - path
+        - reason
+        - status
+        - timestamp
+      type: object
+      properties:
+        timestamp:
+          type: string
+        status:
+          type: integer
+          format: int64
+        reason:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+        method:
+          type: string
+    LaunchContextRequest:
+      required:
+        - aud
+        - patientId
+      type: object
+      properties:
+        aud:
+          type: string
+        patientId:
+          type: string
+        encounterId:
+          type: string
+          nullable: true
+      additionalProperties: false
+    LaunchContextResponse:
+      required:
+        - aud
+        - expiry
+        - launchId
+      type: object
+      properties:
+        launchId:
+          type: string
+        aud:
+          type: string
+        patientId:
+          type: string
+        encounterId:
+          type: string
+        expiry:
+          type: string
+      additionalProperties: false
+    LaunchContextSaveResponse:
+      required:
+        - launchId
+      type: object
+      properties:
+        launchId:
+          type: string
+      additionalProperties: false
