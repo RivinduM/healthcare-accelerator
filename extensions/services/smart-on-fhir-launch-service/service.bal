@@ -26,20 +26,52 @@ configurable string dbUser = "sa";
 configurable string dbPassword = "";
 configurable int port = 9092;
 configurable int expirySeconds = 300;
+// Set to true to store launch contexts in memory instead of the H2 database.
+configurable boolean inMemoryStore = false;
 
-final jdbc:Client dbClient = check new (dbUrl, dbUser, dbPassword);
+// ── In-memory store ───────────────────────────────────────────────────────────
+
+isolated map<LaunchContextRecord> launchContextCache = {};
+
+isolated function cachePut(string launchId, LaunchContextRecord launchCtx) {
+    lock {
+        launchContextCache[launchId] = launchCtx.clone();
+    }
+}
+
+isolated function cacheGet(string launchId) returns LaunchContextRecord? {
+    lock {
+        return launchContextCache[launchId].clone();
+    }
+}
+
+// ── Database client (only used when inMemoryStore = false) ────────────────────
+
+jdbc:Client|error dbClientResult = inMemoryStore ? error("db disabled") : new (dbUrl, dbUser, dbPassword);
 
 function init() returns error? {
-    _ = check dbClient->execute(`
-        CREATE TABLE IF NOT EXISTS LAUNCH_CONTEXT (
-            LAUNCH_ID    VARCHAR(36)  PRIMARY KEY,
-            AUD          VARCHAR(500) NOT NULL,
-            PATIENT_ID   VARCHAR(255) NOT NULL,
-            ENCOUNTER_ID VARCHAR(255),
-            EXPIRY       VARCHAR(50)  NOT NULL
-        )
-    `);
-    log:printInfo("SMART launch context database initialized");
+    if inMemoryStore {
+        log:printInfo("SMART launch context service running in in-memory mode");
+        return;
+    }
+    if dbClientResult is error {
+        return error("Failed to initialise database client: " + (<error>dbClientResult).message());
+    }
+    if dbClientResult is jdbc:Client {
+        log:printInfo("SMART launch context service connected to database", url = dbUrl);
+        jdbc:Client db = check dbClientResult;
+        _ = check db->execute(`
+            CREATE TABLE IF NOT EXISTS LAUNCH_CONTEXT (
+                LAUNCH_ID    VARCHAR(36)  PRIMARY KEY,
+                AUD          VARCHAR(500) NOT NULL,
+                PATIENT_ID   VARCHAR(255) NOT NULL,
+                ENCOUNTER_ID VARCHAR(255),
+                EXPIRY       VARCHAR(50)  NOT NULL
+            )
+        `);
+        log:printInfo("SMART launch context database initialized");
+    }
+    
 }
 
 @http:ServiceConfig {
@@ -53,12 +85,28 @@ service / on new http:Listener(port) {
 
     # Save a new SMART launch context and return the generated launch ID.
     resource function post launch(@http:Payload LaunchContextRequest payload)
-            returns LaunchContextSaveResponse|http:InternalServerError {
+            returns LaunchContextSaveResponse|http:InternalServerError|error {
         string launchId = uuid:createType4AsString();
         time:Utc expiry = time:utcAddSeconds(time:utcNow(), <decimal>expirySeconds);
         string expiryStr = time:utcToString(expiry);
 
-        sql:ExecutionResult|sql:Error result = dbClient->execute(`
+        if inMemoryStore {
+            cachePut(launchId, {
+                launchId: launchId,
+                aud: payload.aud,
+                patientId: payload.patientId,
+                encounterId: payload.encounterId,
+                expiry: expiryStr
+            });
+            log:printDebug("Saved launch context in memory", launchId = launchId);
+            return {launchId};
+        }
+
+        if dbClientResult is error {
+            return <http:InternalServerError>{body: "Database not available"};
+        }
+        jdbc:Client db = check dbClientResult;
+        sql:ExecutionResult|sql:Error result = db->execute(`
             INSERT INTO LAUNCH_CONTEXT (LAUNCH_ID, AUD, PATIENT_ID, ENCOUNTER_ID, EXPIRY)
             VALUES (${launchId}, ${payload.aud}, ${payload.patientId},
                     ${payload.encounterId}, ${expiryStr})
@@ -74,39 +122,53 @@ service / on new http:Listener(port) {
 
     # Retrieve a SMART launch context by launch ID.
     resource function get launch/[string launchId]()
-            returns LaunchContextResponse|EmptyResponse|http:InternalServerError {
-        LaunchContextRecord|sql:Error context = dbClient->queryRow(`
-            SELECT LAUNCH_ID    AS launchId,
-                   AUD          AS aud,
-                   PATIENT_ID   AS patientId,
-                   ENCOUNTER_ID AS encounterId,
-                   EXPIRY       AS expiry
-            FROM   LAUNCH_CONTEXT
-            WHERE  LAUNCH_ID = ${launchId}
-        `);
+            returns LaunchContextResponse|EmptyResponse|http:InternalServerError|error {
 
-        if context is sql:NoRowsError {
-            return <EmptyResponse>{};
-        }
-        if context is sql:Error {
-            log:printError("Failed to retrieve launch context", context);
-            return <http:InternalServerError>{body: "Failed to retrieve launch context"};
+        LaunchContextRecord? context = ();
+
+        if inMemoryStore {
+            context = cacheGet(launchId);
+            if context is () {
+                return <EmptyResponse>{};
+            }
+        } else {
+            if dbClientResult is error {
+                return <http:InternalServerError>{body: "Database not available"};
+            }
+            jdbc:Client db = check dbClientResult;
+            LaunchContextRecord|sql:Error dbContext = db->queryRow(`
+                SELECT LAUNCH_ID    AS launchId,
+                       AUD          AS aud,
+                       PATIENT_ID   AS patientId,
+                       ENCOUNTER_ID AS encounterId,
+                       EXPIRY       AS expiry
+                FROM   LAUNCH_CONTEXT
+                WHERE  LAUNCH_ID = ${launchId}
+            `);
+
+            if dbContext is sql:NoRowsError {
+                return <EmptyResponse>{};
+            }
+            if dbContext is sql:Error {
+                log:printError("Failed to retrieve launch context", dbContext);
+                return <http:InternalServerError>{body: "Failed to retrieve launch context"};
+            }
+            context = dbContext;
         }
 
-        time:Utc|error expiryUtc = time:utcFromString(context.expiry);
+        LaunchContextRecord ctx = <LaunchContextRecord>context;
+        time:Utc|error expiryUtc = time:utcFromString(ctx.expiry);
         if expiryUtc is error || time:utcDiffSeconds(time:utcNow(), expiryUtc) > 0d {
             return <EmptyResponse>{};
         }
 
-        LaunchContextResponse response = {
-            launchId: context.launchId,
-            aud: context.aud,
-            expiry: context.expiry,
-            patientId: context.patientId ?: (),
-            encounterId: context.encounterId ?: ()
+        return {
+            launchId: ctx.launchId,
+            aud: ctx.aud,
+            expiry: ctx.expiry,
+            patientId: ctx.patientId ?: (),
+            encounterId: ctx.encounterId ?: ()
         };
-
-        return response;
     }
 
 }
