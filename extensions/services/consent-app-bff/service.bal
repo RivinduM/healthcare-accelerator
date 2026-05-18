@@ -404,8 +404,11 @@ service / on consentBffListener {
                 if s == "" {
                     continue;
                 }
-                if s.startsWith("OH_") {
+                if s.startsWith("OH_") || s.startsWith("launch") || s == "fhirUser" {
                     hiddenScopes.push(s);
+                    continue;
+                }
+                if s.matches(re `^system/.*`) {
                     continue;
                 }
                 boolean isAlwaysAllowed = false;
@@ -416,7 +419,20 @@ service / on consentBffListener {
                     }
                 }
                 if !isAlwaysAllowed {
-                    visibleScopes.push(s);
+                    if s.matches(re `^(patient|user)/(\*|[A-Za-z]*)\.(cruds|c?r?u?d?s?)$`) {
+                        string[] parts = re `\.`.split(s);
+                        if parts.length() == 2 && parts[1].length() > 1 {
+                            string resourceStr = parts[0];
+                            string opsStr = parts[1];
+                            foreach int i in 0 ..< opsStr.length() {
+                                visibleScopes.push(resourceStr + "." + opsStr.substring(i, i + 1));
+                            }
+                        } else {
+                            visibleScopes.push(s);
+                        }
+                    } else {
+                        visibleScopes.push(s);
+                    }
                 }
             }
 

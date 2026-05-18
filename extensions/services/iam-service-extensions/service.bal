@@ -110,26 +110,34 @@ service / on httpListener {
         boolean hasConsent = sessionDataKeyConsent is string && sessionDataKeyConsent != "" && resolvedConsentId is string;
         if filteredTokenScopes is string[] {
             foreach string scope in filteredTokenScopes {
-                if hasConsent && !isAlwaysAllowedScope(scope) && !isScopeApproved(scope, approvedScopes) {
-                    log:printWarn(string `[${flowId}]: Scope '${scope}' not in approved set — skipped`);
-                    continue;
-                }
-
                 if scope.matches(scopeRegex) {
-                    // Expand multi-character operations (e.g. cruds → c, r, u, d, s)
+                    // Expand multi-character operations first, then check each expanded scope
                     string[] parts = re `\.`.split(scope);
                     if parts.length() == 2 {
                         string resourceStr = parts[0];
                         string opsStr = parts[1];
                         if opsStr.length() > 1 {
                             foreach int i in 0 ..< opsStr.length() {
-                                modifiedScopes.push(resourceStr + "." + opsStr.substring(i, i + 1));
+                                string expanded = resourceStr + "." + opsStr.substring(i, i + 1);
+                                if hasConsent && !isAlwaysAllowedScope(expanded) && !isScopeApproved(expanded, approvedScopes) {
+                                    log:printWarn(string `[${flowId}]: Expanded scope '${expanded}' not in approved set — skipped`);
+                                    continue;
+                                }
+                                modifiedScopes.push(expanded);
                             }
                         } else {
+                            if hasConsent && !isAlwaysAllowedScope(scope) && !isScopeApproved(scope, approvedScopes) {
+                                log:printWarn(string `[${flowId}]: Scope '${scope}' not in approved set — skipped`);
+                                continue;
+                            }
                             modifiedScopes.push(scope);
                         }
                     }
                 } else if !scope.matches(re `^(patient|user|system)/.*`) {
+                    if hasConsent && !isAlwaysAllowedScope(scope) && !isScopeApproved(scope, approvedScopes) {
+                        log:printWarn(string `[${flowId}]: Scope '${scope}' not in approved set — skipped`);
+                        continue;
+                    }
                     modifiedScopes.push(scope);
                 } else {
                     log:printWarn(string `[${flowId}]: Scope '${scope}' has invalid SMART format — skipped`);
