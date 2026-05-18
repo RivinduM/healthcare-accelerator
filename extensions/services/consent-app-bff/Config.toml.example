@@ -1,0 +1,51 @@
+# consent-app-bff Configuration Template
+# Copy to Config.toml and fill in your values.
+
+hostname = "localhost"
+port = 9092
+corsAllowedOrigin = "http://localhost:5176"
+
+# IDP base URL — works for both WSO2 IS and Asgardeo
+# WSO2 IS example:   "https://localhost:9443"
+# Asgardeo example:  "https://api.asgardeo.io/t/mytenant"
+idpBaseUrl = "https://localhost:9443"
+
+# Leave empty to default to {idpBaseUrl}/oauth2/token
+idpTokenEndpoint = ""
+
+clientId = "<oauth2-client-id>"
+clientSecret = "<oauth2-client-secret>"   # also used as JWT signing secret
+
+# Consent flow:
+#   "scope"   — all apps use SMART scope flow
+#   "purpose" — all apps use purpose+element flow
+#   "auto"    — determine flow per client_id using scopeConsentedApps / purposeConsentedApps below
+consentFlow = "scope"
+
+# Only used when consentFlow = "auto"
+# List the spId values that should use the scope flow
+scopeConsentedApps = ["<spId-1>", "<spId-2>"]
+# List the spId values that should use the purpose flow
+purposeConsentedApps = ["<spId-3>"]
+# Fallback URL for client_ids not in either list — sessionDataKeyConsent and spId are appended
+defaultIdpConsentPage = "https://localhost:9443/authenticationendpoint/oauth2_consent.do"
+
+openfgcBaseUrl = "http://localhost:8080"
+orgId = "<openfgc-org-id>"
+tppClientId = "<openfgc-tpp-client-id>"
+consentType = "smart-consent"
+
+alwaysAllowedScopes = ["openid"]
+
+singleConsentPerUser = false
+showConsentElements = true
+
+# Scope flow: which OpenFGC purpose wraps SMART scopes (element name is fetched from OpenFGC at startup)
+[scopeConsent]
+purposeName = "SMART Scope Authorization"
+
+# Purpose flow: one [[purposeConsent]] entry per purpose shown in the consent UI.
+# description, mandatory flag, and elements are fetched from OpenFGC at startup.
+# The service fails to start if any listed purpose is not found in OpenFGC.
+[[purposeConsent]]
+purposeName = "All Health Data Access"

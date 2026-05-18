@@ -1,0 +1,166 @@
+openapi: 3.0.1
+info:
+  title: Pre-Issue Token Actions
+  version: 0.1.0
+paths:
+  /pre-issue-access-token:
+    post:
+      summary: ''
+      operationId: postPreIssueAccessToken
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+        required: true
+      responses:
+        '200':
+          description: Ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: BadRequest
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrorResponse'
+                  - $ref: '#/components/schemas/ErrorPayload'
+        '500':
+          description: InternalServerError
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrorResponse'
+                  - $ref: '#/components/schemas/ErrorPayload'
+  /pre-issue-id-token:
+    post:
+      summary: Adds fhirUser as an ID token claim when the fhirUser scope is requested.
+      operationId: postPreIssueIdToken
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+        required: true
+      responses:
+        '200':
+          description: Ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: BadRequest
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ErrorResponse'
+                  - $ref: '#/components/schemas/ErrorPayload'
+        '500':
+          description: InternalServerError
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    CustomValue:
+      required:
+        - name
+        - value
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          oneOf:
+            - type: string
+            - type: integer
+              format: int64
+            - type: boolean
+            - type: array
+              items:
+                type: string
+    ErrorPayload:
+      required:
+        - message
+        - method
+        - path
+        - reason
+        - status
+        - timestamp
+      type: object
+      properties:
+        timestamp:
+          type: string
+        status:
+          type: integer
+          format: int64
+        reason:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+        method:
+          type: string
+    ErrorResponse:
+      required:
+        - actionStatus
+        - errorDescription
+        - errorMessage
+      type: object
+      properties:
+        errorMessage:
+          type: string
+        errorDescription:
+          type: string
+    SuccessResponse:
+      required:
+        - actionStatus
+      type: object
+      properties:
+        operations:
+          type: array
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/addOperationResponse'
+              - $ref: '#/components/schemas/replaceOperationResponse'
+              - $ref: '#/components/schemas/removeOperationResponse'
+    addOperationResponse:
+      required:
+        - op
+        - path
+        - value
+      type: object
+      properties:
+        path:
+          type: string
+        value:
+          oneOf:
+            - type: string
+            - $ref: '#/components/schemas/CustomValue'
+    removeOperationResponse:
+      required:
+        - op
+        - path
+      type: object
+      properties:
+        path:
+          type: string
+    replaceOperationResponse:
+      required:
+        - op
+        - path
+        - value
+      type: object
+      properties:
+        path:
+          type: string
+        value:
+          type: string

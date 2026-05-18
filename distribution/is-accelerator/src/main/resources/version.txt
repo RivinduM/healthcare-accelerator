@@ -1,0 +1,1 @@
+WSO2 Open Healthcare Identity Server 7.2.0 Accelerator - v${project.version}

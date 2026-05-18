@@ -1,0 +1,311 @@
+openapi: 3.0.1
+info:
+  title: Consent App BFF
+  version: 0.1.0
+paths:
+  /get-consent-data:
+    get:
+      summary: Returns aggregated consent context for the UI in one response.
+      operationId: getGetConsentData
+      parameters:
+        - name: sessionDataKeyConsent
+          in: query
+          description: The consent session key from the identity server
+          required: true
+          schema:
+            type: string
+        - name: spId
+          in: query
+          description: The service provider (application) ID requesting consent
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ok
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ScopeConsentData'
+                  - $ref: '#/components/schemas/PurposeConsentData'
+                  - $ref: '#/components/schemas/RedirectConsentData'
+        '400':
+          description: BadRequest
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+        '500':
+          description: InternalServerError
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+  /submit-consent:
+    post:
+      summary: >-
+        Validates the consent token and stores the user's decision in OpenFGC.
+
+        The UI form-POSTs directly to the IDP authorize URL after this call
+        succeeds.
+      operationId: postSubmitConsent
+      requestBody:
+        description: The consent decision payload including the JWT consent token
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitConsentRequest'
+        required: true
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitConsentResponse'
+        '400':
+          description: BadRequest
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+        '500':
+          description: InternalServerError
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorPayload'
+components:
+  schemas:
+    ConsentPatient:
+      required:
+        - fhirUser
+        - id
+        - name
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        fhirUser:
+          type: string
+        mrn:
+          type: string
+      additionalProperties: false
+    ConsentPurpose:
+      required:
+        - elements
+        - mandatory
+        - purposeName
+      type: object
+      properties:
+        purposeName:
+          type: string
+        mandatory:
+          type: boolean
+        purposeDescription:
+          type: string
+        elements:
+          type: array
+          items:
+            type: string
+      additionalProperties: false
+    ConsentUser:
+      required:
+        - displayName
+        - email
+        - id
+      type: object
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        email:
+          type: string
+      additionalProperties: false
+    ConsentedPurpose:
+      required:
+        - consentedElements
+        - purposeName
+      type: object
+      properties:
+        purposeName:
+          type: string
+        consentedElements:
+          type: array
+          items:
+            type: string
+      additionalProperties: false
+    ErrorPayload:
+      required:
+        - message
+        - method
+        - path
+        - reason
+        - status
+        - timestamp
+      type: object
+      properties:
+        timestamp:
+          type: string
+        status:
+          type: integer
+          format: int64
+        reason:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+        method:
+          type: string
+    PurposeConsentData:
+      required:
+        - appName
+        - consentToken
+        - mandatoryClaims
+        - purposes
+        - scopes
+        - sessionDataKeyConsent
+        - spId
+        - user
+      type: object
+      properties:
+        flow:
+          type: string
+          default: purpose
+        sessionDataKeyConsent:
+          type: string
+        spId:
+          type: string
+        appName:
+          type: string
+        user:
+          $ref: '#/components/schemas/ConsentUser'
+        purposes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConsentPurpose'
+        scopes:
+          type: array
+          items:
+            type: string
+        mandatoryClaims:
+          type: string
+        existingConsentId:
+          type: string
+        previouslyConsentedPurposeNames:
+          type: array
+          items:
+            type: string
+        previouslyConsentedElements:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        consentToken:
+          type: string
+      additionalProperties: false
+    RedirectConsentData:
+      required:
+        - redirectUrl
+      type: object
+      properties:
+        flow:
+          type: string
+          default: redirect
+        redirectUrl:
+          type: string
+      additionalProperties: false
+    ScopeConsentData:
+      required:
+        - consentToken
+        - hiddenScopes
+        - isPractitioner
+        - mandatoryClaims
+        - scopes
+        - sessionDataKeyConsent
+        - spId
+        - user
+      type: object
+      properties:
+        flow:
+          type: string
+          default: scope
+        sessionDataKeyConsent:
+          type: string
+        spId:
+          type: string
+        user:
+          $ref: '#/components/schemas/ConsentUser'
+        isPractitioner:
+          type: boolean
+        patients:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConsentPatient'
+        scopes:
+          type: array
+          items:
+            type: string
+        hiddenScopes:
+          type: array
+          items:
+            type: string
+        mandatoryClaims:
+          type: string
+        existingConsentId:
+          type: string
+        previouslyApprovedScopes:
+          type: array
+          items:
+            type: string
+        consentToken:
+          type: string
+      additionalProperties: false
+    SubmitConsentRequest:
+      required:
+        - approved
+        - consentToken
+        - sessionDataKeyConsent
+        - spId
+      type: object
+      properties:
+        consentToken:
+          type: string
+        sessionDataKeyConsent:
+          type: string
+        spId:
+          type: string
+        approved:
+          type: boolean
+        approvedScopes:
+          type: array
+          items:
+            type: string
+        hiddenScopes:
+          type: array
+          items:
+            type: string
+        consentedPurposes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConsentedPurpose'
+        existingConsentId:
+          type: string
+      additionalProperties: false
+    SubmitConsentResponse:
+      required:
+        - message
+        - status
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+      additionalProperties: false

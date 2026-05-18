@@ -1,0 +1,31 @@
+# iam-service-extensions Configuration Template
+# Copy to Config.toml and fill in your values.
+
+hostname = "localhost"
+port = 9093
+
+# OpenFGC — consent store
+openfgcBaseUrl = "http://localhost:8080"
+orgId = "<openfgc-org-id>"
+tppClientId = "<openfgc-tpp-client-id>"
+
+# EHR launch context resolution (optional — leave blank to skip)
+ehrContextResolveUrl = ""
+
+# SCIM user lookup (optional — used to resolve patient ID from the logged-in user)
+# Leave scimApiBaseUrl blank to skip SCIM lookup entirely.
+scimApiBaseUrl = "https://api.asgardeo.io/t/<tenant>"
+scimApiPath = "/scim2/Users"
+scimClientId = "<scim-client-id>"
+scimClientSecret = "<scim-client-secret>"
+# Leave empty to default to {scimApiBaseUrl}/oauth2/token
+scimTokenEndpoint = ""
+scimPatientGroupName = "patient"
+fhirUserAttributeName = "fhirUser"
+
+# Trust store for HTTPS connections to IDP/SCIM/EHR endpoints (optional)
+trustStorePath = ""
+trustStorePassword = ""
+
+# Scopes that bypass consent checks (always included in the token)
+alwaysAllowedScopes = ["openid"]

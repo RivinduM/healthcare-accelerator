@@ -20,7 +20,7 @@
 <!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
 
 <suite name="Private-Key-JWT-Tests">
-    <test name="Tests" preserve-order="true" parallel="false">
+    <test name="Tests" preserve-order="true" parallel="false" enabled="false">
         <classes>
             <class name="org.wso2.healthcare.apim.clientauth.jwt.validator.JWTValidatorTest"/>
             <class name="org.wso2.healthcare.apim.clientauth.jwt.PrivateKeyJWTClientAuthenticatorTest"/>

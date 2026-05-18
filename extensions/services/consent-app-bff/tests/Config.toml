@@ -1,0 +1,33 @@
+hostname = "localhost"
+port = 9092
+corsAllowedOrigin = "http://localhost:3000"
+
+# callIdp / getScimUser / getScimPatients are mocked at function level — these values
+# are not used during tests but must be present to satisfy required configurables.
+idpBaseUrl = "http://localhost:9195"
+idpTokenEndpoint = "http://localhost:9195/oauth2/token"
+clientId = "test-client-id"
+
+# Must be >= 32 characters for HS256
+clientSecret = "test-secret-key-must-be-at-least-32-chars"
+
+consentFlow = "scope"
+
+# Mock OpenFGC runs in-process on port 9196
+openfgcBaseUrl = "http://localhost:9196"
+orgId = "test-org"
+tppClientId = "test-tpp-client"
+consentType = "test-consent"
+
+scopeConsentPurposeName = "SMART Scope Authorization"
+scopeConsentElementName = "scope-access"
+alwaysAllowedScopes = ["openid"]
+
+singleConsentPerUser = false
+showConsentElements = true
+
+[[consentPurpose]]
+name = "All Health Data Access"
+description = "Test health data access"
+mandatory = false
+elements = ["Patient", "Observation"]

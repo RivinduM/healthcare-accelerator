@@ -1,119 +1,134 @@
-# Consent Web App
+# consent-app-bff
 
-Standalone consent UI for SMART on FHIR OAuth scope authorization. Supports practitioner-initiated flows where a clinician selects a patient before approving scopes on behalf of that patient context.
+Ballerina Backend-for-Frontend for the consent application. Runs on port **9092**, exposes a REST API, and works with both WSO2 IS and Asgardeo.
 
-## Flow
+## Architecture
 
-1. The service injects consent props (session key, scopes, user) into the React SPA at page load.
-2. If the authenticated user has a `fhirUser` value containing `Practitioner`, the **Patient Picker** page is shown first.
-3. After selecting a patient, the user proceeds to the **Consent** page to approve or deny the requested scopes.
-4. On approval, the service persists approved scopes and redirects to the IS OAuth2 authorize endpoint.
+```
+consent-app (UI)
+      │
+      ▼
+consent-app-bff  :9092
+      │
+      ├── IDP (WSO2 IS / Asgardeo)  — OauthConsentKey + SCIM
+      └── OpenFGC  — consent store
+```
 
-## Endpoints
+### Files
 
-### `GET /consent?sessionDataKeyConsent=<key>&spId=<spId>`
+| File | Purpose |
+|------|---------|
+| `config.bal` | All configurables |
+| `connections.bal` | IDP + OpenFGC HTTP clients, token management |
+| `types.bal` | All record types |
+| `service.bal` | HTTP listener, service endpoints |
+| `tests/` | Mock OpenFGC listener, IDP mocked at function level, service tests |
 
-Loads consent context from the IS identity API and renders the React SPA.
+## API
 
-- Fetches scope and user data from:
-  `{consentContextApiBaseUrl}{consentContextApiPath}/{sessionDataKeyConsent}`
-- Injects `sessionDataKeyConsent`, `spId`, `user`, and `scopes` into the page as `window.__CONSENT_PROPS__`.
+### `GET /get-consent-data?sessionDataKeyConsent=&spId=`
 
-### `POST /consent`
+Resolves the consent flow and returns all data the UI needs in one call.
 
-Receives form submission from the consent UI.
-
-| Field | Description |
-|---|---|
-| `SessionDataKeyConsent` | Consent session key |
-| `Consent` | `approve` or `deny` |
-| `hasApprovedAlways` | `true` or `false` |
-| `User_claims_consent` | `true` |
-| `user` | Authenticated username |
-| `spId` | Service provider ID |
-| `scope` | Repeated field — one per approved scope |
-| `additionalContext` | Repeated field — one JSON string per context item (e.g. selected patient) |
-
-On approval, persists approved scopes to the H2 database and redirects to `consentAuthorizeRedirectUrl`.  
-If `consentAuthorizeRedirectUrl` is not set, returns the parsed form data as JSON (useful for testing).
-
-### `GET /approved-scopes?sessionDataKeyConsent=<key>`
-
-Returns the persisted approved scopes for a given consent session.
+**Responses:**
 
 ```json
+// flow = "scope"
 {
-  "sessionDataKeyConsent": "<key>",
-  "scopes": ["patient/Observation.read", "launch/patient"]
+  "flow": "scope",
+  "sessionDataKeyConsent": "...",
+  "spId": "...",
+  "user": { "id": "...", "displayName": "...", "email": "..." },
+  "isPractitioner": false,
+  "patients": [],
+  "scopes": ["patient/Observation.read"],
+  "hiddenScopes": ["OH_launch/abc"],
+  "mandatoryClaims": "0_email",
+  "previouslyApprovedScopes": [],
+  "consentToken": "<jwt>"
+}
+
+// flow = "purpose"
+{
+  "flow": "purpose",
+  "sessionDataKeyConsent": "...",
+  "spId": "...",
+  "appName": "MyApp",
+  "user": { ... },
+  "purposes": [{ "purposeName": "All Health Data Access", "mandatory": false, "elements": ["Patient", "Observation"] }],
+  "scopes": ["openid", "fhirUser"],
+  "mandatoryClaims": "",
+  "consentToken": "<jwt>"
+}
+
+// flow = "redirect" (consentFlow = "auto", spId not in either list)
+{
+  "flow": "redirect",
+  "redirectUrl": "https://<idp>/oauth2_consent.do?sessionDataKeyConsent=...&spId=..."
 }
 ```
 
-### `GET /api/me?userId=<userId>`
+### `POST /submit-consent`
 
-Proxies a SCIM2 user lookup to the IS instance.
+Validates the JWT consent token and stores the decision in OpenFGC. The UI form-POSTs directly to the IDP after this call succeeds.
 
-- Calls `GET {consentContextApiBaseUrl}/scim2/Users/{userId}`
-- Returns the raw SCIM2 user object.
-- Used by the UI to resolve the logged-in practitioner's display name and `fhirUser` attribute.
+```json
+// scope flow
+{
+  "consentToken": "<jwt>",
+  "sessionDataKeyConsent": "...",
+  "spId": "...",
+  "approved": true,
+  "approvedScopes": ["patient/Observation.read"],
+  "hiddenScopes": ["OH_launch/abc"]
+}
 
-### `GET /api/patients`
-
-Returns a list of patients from the IS SCIM2 directory.
-
-- POSTs a search request to `{consentContextApiBaseUrl}/scim2/Users/.search` filtered by `fhirUser co Patient`.
-- Returns the raw SCIM2 `ListResponse` (the UI maps `Resources[]` to patient records).
-
-### `GET /assets/*`
-
-Serves Vite build assets (JS, CSS) from the `uiDistPath` directory.
-
-## Configuration
-
-Edit `Config.toml`:
-
-| Key | Description | Default |
-|---|---|---|
-| `hostname` | Bind address | `localhost` |
-| `port` | Listen port | `9091` |
-| `consentContextApiBaseUrl` | Base URL of the WSO2 IS instance | `https://localhost:9443` |
-| `consentContextApiPath` | Path to the OauthConsentKey API | `/api/identity/auth/v1.1/data/OauthConsentKey` |
-| `consentContextApiUsername` | IS admin username | — |
-| `consentContextApiPassword` | IS admin password | — |
-| `consentContextApiTrustStorePath` | Path to the IS client truststore (required for HTTPS) | — |
-| `consentContextApiTrustStorePassword` | Truststore password (required for HTTPS) | — |
-| `consentAuthorizeRedirectUrl` | IS OAuth2 authorize endpoint to redirect to after approval | — |
-| `consentStoreDbUrl` | H2 JDBC URL for approved scope storage | `jdbc:h2:./resources/consent_scopes` |
-| `uiDistPath` | Path to the React build output (`dist/`) | `resources/consent-ui` |
-
-For local WSO2 IS, point `consentContextApiTrustStorePath` to the IS `client-truststore.p12` and set its password.
-
-## Build the UI
-
-```bash
-cd ../../webapps/consent-app
-npm install
-npm run build
-```
-`Post build script will copy the build artifacts to consent service distribution`
-
-## Run
-
-Build the consent web application.
-```bash
-cd ../../webapps/consent-app
-npm run build
-cd ../../services/consent-app-bff
+// purpose flow
+{
+  "consentToken": "<jwt>",
+  "sessionDataKeyConsent": "...",
+  "spId": "...",
+  "approved": true,
+  "consentedPurposes": [{ "purposeName": "All Health Data Access", "consentedElements": ["Patient"] }],
+  "existingConsentId": "<id-if-updating>"
+}
 ```
 
+## Consent flows
+
+| `consentFlow` | Behaviour |
+|---------------|-----------|
+| `scope` | All apps use SMART scope selection |
+| `purpose` | All apps use purpose + element selection |
+| `auto` | Resolved by `spId`: `scopeConsentedApps` → scope, `purposeConsentedApps` → purpose, otherwise redirect to `defaultIdpConsentPage` |
+
+When `consentFlow = "auto"`, flow is determined **before** any IDP call, so the IDP session is never corrupted by a server-side OauthConsentKey call for the redirect path.
+
+When `scopes = []` (no visible scopes in the scope flow), the UI auto-approves silently without calling submit-consent.
+
+## Setup
+
 ```bash
+cp Config.toml.example Config.toml
+# Edit Config.toml with your values
 bal run
 ```
 
-## Integrate with WSO2 IS 7.2.0
+### Required config
 
-Add following config to `deployment.toml`
+| Key | Description |
+|-----|-------------|
+| `corsAllowedOrigin` | UI origin, e.g. `http://localhost:5175` |
+| `idpBaseUrl` | WSO2 IS (`https://localhost:9443`) or Asgardeo (`https://api.asgardeo.io/t/<tenant>`) |
+| `clientId` / `clientSecret` | OAuth2 client credentials; `clientSecret` is also the HS256 JWT signing secret |
+| `openfgcBaseUrl` / `orgId` / `tppClientId` / `consentType` | OpenFGC connection |
 
-```toml
-[oauth.endpoints.v2]
-oidc_consent_page="http://localhost:9091/consent"
+See `Config.toml.example` for the full template including `consentFlow`, purpose definitions, and `auto` mode settings.
+
+## Tests
+
+```bash
+bal test
 ```
+
+Tests use in-process mock IDP and OpenFGC listeners defined in `tests/`.

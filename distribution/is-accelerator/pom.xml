@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright (c) 2026, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+  ~
+  ~ WSO2 Inc. licenses this file to you under the Apache License,
+  ~ Version 2.0 (the "License"); you may not use this file except
+  ~ in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~ http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing,
+  ~ software distributed under the License is distributed on an
+  ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  ~ KIND, either express or implied.  See the License for the
+  ~ specific language governing permissions and limitations
+  ~ under the License.
+  -->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.wso2.healthcare</groupId>
+        <artifactId>distribution</artifactId>
+        <version>2.0.0</version>
+    </parent>
+
+    <artifactId>is-accelerator</artifactId>
+    <version>2.0.0</version>
+    <packaging>pom</packaging>
+    <name>WSO2 Healthcare IS Accelerator - Distribution</name>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.wso2.healthcare</groupId>
+            <artifactId>org.wso2.healthcare.is.smart.auth</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.wso2.healthcare</groupId>
+            <artifactId>org.wso2.healthcare.is.tokenmgt</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>wso2-hcis-accelerator-${project.version}</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-resources</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${basedir}/target/extra-resources</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>src/main/resources</directory>
+                                    <filtering>true</filtering>
+                                    <includes>
+                                        <include>**/version.txt</include>
+                                    </includes>
+                                </resource>
+                                <resource>
+                                    <directory>${basedir}</directory>
+                                    <filtering>true</filtering>
+                                    <includes>
+                                        <include>**/README.md</include>
+                                    </includes>
+                                </resource>
+                                <resource>
+                                    <directory>src/main/resources</directory>
+                                    <filtering>false</filtering>
+                                    <excludes>
+                                        <exclude>**/version.txt</exclude>
+                                    </excludes>
+                                </resource>
+                                <resource>
+                                    <directory>${basedir}</directory>
+                                    <filtering>false</filtering>
+                                    <includes>
+                                        <include>**/README.md</include>
+                                    </includes>
+                                </resource>
+                                <resource>
+                                    <directory>${basedir}/../../distribution/is-accelerator/updates</directory>
+                                    <filtering>true</filtering>
+                                    <includes>
+                                        <include>**/product.txt</include>
+                                    </includes>
+                                </resource>
+                            </resources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>regex-property</id>
+                        <goals>
+                            <goal>regex-property</goal>
+                        </goals>
+                        <configuration>
+                            <name>wso2.feature.version</name>
+                            <value>${project.version}</value>
+                            <regex>-</regex>
+                            <replacement>.</replacement>
+                            <failIfNoMatch>false</failIfNoMatch>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>prepare-wso2hc-is-accelerator</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <tasks>
+                                <property name="temp_dir" value="target/temp" />
+                                <property name="dist_dir" value="target/dist" />
+                                <property name="product_home" value="${dist_dir}"/>
+
+                                <!--Add Bundles to dropins-->
+                                <copy todir="${product_home}/carbon-home/repository/components/dropins">
+                                    <!--SMART Auth Handler-->
+                                    <fileset dir="${basedir}/../../product-accelerators/is/components/org.wso2.healthcare.is.smart.auth/target">
+                                        <include name="org.wso2.healthcare.is.smart.auth-${project.version}.jar"/>
+                                    </fileset>
+                                    <!--IS Token Management - Custom Authorization Code Grant Handler-->
+                                    <fileset dir="${basedir}/../../product-accelerators/is/components/org.wso2.healthcare.is.tokenmgt/target">
+                                        <include name="org.wso2.healthcare.is.tokenmgt-${project.version}.jar"/>
+                                    </fileset>
+                                </copy>
+
+                                <!--Add bin folder with merge.sh-->
+                                <copy todir="${product_home}/bin">
+                                    <fileset dir="${basedir}/../../distribution/is-accelerator/bin"
+                                            includes="**"/>
+                                </copy>
+
+                                <chmod dir="${product_home}/bin" perm="ugo+rx" includes="**/*.sh"/>
+
+                                <!--Add conf folder with config.toml-->
+                                <copy todir="${product_home}/conf">
+                                    <fileset dir="${basedir}/../../distribution/is-accelerator/conf"
+                                            includes="**"/>
+                                </copy>
+
+                                <!--Add resources folder with repository config-->
+                                <copy todir="${product_home}/carbon-home/repository/conf">
+                                    <fileset dir="${basedir}/../../distribution/is-accelerator/resources/repository/conf"
+                                            includes="**"/>
+                                </copy>
+
+                                <!--Add temporary IS resources until the fixes are available in official pack-->
+                                <copy todir="${product_home}/carbon-home/repository/temp/components/dropins">
+                                    <fileset dir="${basedir}/../../distribution/is-accelerator/resources/repository/temp/components/dropins"
+                                             includes="**"/>
+                                </copy>
+                                <copy todir="${product_home}/carbon-home/repository/temp/deployment/server/webapps">
+                                    <fileset dir="${basedir}/../../distribution/is-accelerator/resources/repository/temp/components/webapps"
+                                             includes="**"/>
+                                </copy>
+
+                                <!--Add consent webapp (built dist + WEB-INF only)-->
+                                <copy todir="${product_home}/carbon-home/repository/deployment/server/webapps/consent">
+                                    <fileset dir="${basedir}/../../extensions/webapps/consent-app/dist"
+                                            includes="**"/>
+                                </copy>
+                                <copy todir="${product_home}/carbon-home/repository/deployment/server/webapps/consent/WEB-INF">
+                                    <fileset dir="${basedir}/../../extensions/webapps/consent-app/WEB-INF"
+                                            includes="web.xml"/>
+                                </copy>
+
+                                <copy todir="${product_home}">
+                                    <!--Add README.md file-->
+                                    <fileset dir="target/extra-resources">
+                                        <include name="README.md"/>
+                                    </fileset>
+                                    <!--Add version.txt file-->
+                                    <fileset dir="target/extra-resources">
+                                        <include name="version.txt"/>
+                                    </fileset>
+                                </copy>
+
+                                <!--Add LICENSE.txt file-->
+                                <copy todir="${product_home}">
+                                    <fileset dir="${basedir}/../../distribution/is-accelerator/updates">
+                                        <include name="LICENSE.txt"/>
+                                    </fileset>
+                                </copy>
+
+                            </tasks>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>cleanup</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <tasks>
+                                <property name="temp_dir" value="target/temp" />
+                                <property name="dist_dir" value="target/dist" />
+                                <!--cleanup-->
+                                <delete dir="${temp_dir}"/>
+                                <delete dir="${dist_dir}"/>
+                            </tasks>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>dist</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <configuration>
+                            <descriptors>
+                                <descriptor>src/assembly/bin.xml</descriptor>
+                            </descriptors>
+                            <finalName>wso2-hcis-accelerator-${project.version}</finalName>
+                            <appendAssemblyId>false</appendAssemblyId>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+    <profiles>
+        <profile>
+            <id>update-tool</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>prepare-update-files</id>
+                                <phase>process-resources</phase>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                                <configuration>
+                                    <tasks>
+                                        <property name="dist_dir" value="target/dist" />
+                                        <property name="product_home" value="${dist_dir}"/>
+
+                                        <!--Add update directory -->
+                                        <copy
+                                                todir="${product_home}/updates">
+                                            <fileset
+                                                    dir="target/extra-resources"
+                                                    includes="product.txt"/>
+                                        </copy>
+
+                                        <!--Add bin folder with update scripts-->
+                                        <copy
+                                                todir="${product_home}/bin">
+                                            <fileset
+                                                    dir="${basedir}/../../distribution/is-accelerator/updates/bin"
+                                                    includes="**"/>
+                                        </copy>
+                                    </tasks>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+</project>

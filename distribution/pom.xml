@@ -33,6 +33,7 @@
 
     <modules>
         <module>apim-accelerator</module>
+        <module>is-accelerator</module>
     </modules>
 
 </project>

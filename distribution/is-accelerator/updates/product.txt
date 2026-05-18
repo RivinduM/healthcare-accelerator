@@ -1,0 +1,1 @@
+wso2-hcis-accelerator-${project.version}

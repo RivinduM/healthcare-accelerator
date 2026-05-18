@@ -1,0 +1,19 @@
+hostname = "localhost"
+port = 9093
+
+# Mock OpenFGC runs in-process on port 9296
+openfgcBaseUrl = "http://localhost:9296"
+orgId = "test-org"
+tppClientId = "test-tpp-client"
+
+# Mock SCIM runs in-process on port 9297 (also serves /oauth2/token for client credentials)
+scimApiBaseUrl = "http://localhost:9297"
+scimApiPath = "/scim2/Users"
+scimClientId = "test-client-id"
+scimClientSecret = "test-client-secret"
+scimTokenEndpoint = ""
+scimPatientGroupName = "patient"
+fhirUserAttributeName = "fhirUser"
+
+ehrContextResolveUrl = ""
+alwaysAllowedScopes = ["openid"]

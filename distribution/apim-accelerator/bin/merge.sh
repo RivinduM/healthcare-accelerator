@@ -350,7 +350,7 @@ show_display_name_in_consent_page = true\
       echo -e "[WARN] healthcare.identity.scopemgt configuration already exist"
   else
       # code if not found
-      echo -e "\n[healthcare.identity.scopemgt]\nroles = [\"patient-read\", \"patient-write\", \"user-read\", \"user-write\"]\nenable_fhir_scope_to_wso2_scope_mapping = true"  | tee -a "${WSO2_OH_APIM_HOME}"/repository/conf/deployment.toml >/dev/null
+      echo -e "\n[healthcare.identity.scopemgt]\nroles = [\"patient-read\", \"patient-write\", \"user-read\", \"user-write\"]\nenable_fhir_scope_to_wso2_scope_mapping = false"  | tee -a "${WSO2_OH_APIM_HOME}"/repository/conf/deployment.toml >/dev/null
   fi
 
   # shared scopes

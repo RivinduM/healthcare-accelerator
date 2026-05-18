@@ -1,0 +1,2 @@
+# Enable or disable the SMART on FHIR features for Identity Server
+enable_smart_on_fhir = true

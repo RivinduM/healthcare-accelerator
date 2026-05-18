@@ -1,13 +1,10 @@
 [package]
 org = "ballerinax"
-name = "consent_webapp"
+name = "consent_app_bff"
 version = "0.1.0"
 distribution = "2201.12.10"
 
-[build-options]
-observabilityIncluded = true
-
-[[platform.java21.dependency]]
-artifactId = "h2"
-version = "2.3.232"
-groupId = "com.h2database"
+[[dependency]]
+org = "ballerina"
+name = "jwt"
+version = "2.15.1"

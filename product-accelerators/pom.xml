@@ -46,6 +46,8 @@
         <module>apim/apps/authentication-portal</module>
         <module>apim/apps/recovery-portal</module>
         <module>apim/apps/identity-shared</module>
+        <module>is/components/org.wso2.healthcare.is.smart.auth</module>
+        <module>is/components/org.wso2.healthcare.is.tokenmgt</module>
     </modules>
 
 </project>
